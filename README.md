@@ -34,9 +34,11 @@ git clone https://github.com/sai1432-ss/Blog_API.git
 cd Blog-API
 
 *2.Install Dependencies*
+
 npm install
 
 *3.Start the Server*
+
 node server.js
 
 
@@ -47,9 +49,11 @@ The SQLite database (database.sqlite) is created automatically on first run.
 
 **Testing**
 Option 1: 
+
 A full test suite to validate all API functionality.
 node test_script.js
 ✔ Tests:
+
 Author CRUD
 Post CRUD
 Filtering
@@ -57,6 +61,7 @@ Cascade delete behavior
 
 Option 2: Postman Collection
 Steps:
+
 Open Postman
 Import blog_api.postman_collection.json
 Run requests and inspect responses
