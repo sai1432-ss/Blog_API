@@ -1,5 +1,6 @@
 // test_script.js
 const BASE_URL = 'http://localhost:3000';
+
 // Helper function to make requests nicely
 async function request(endpoint, method = 'GET', body = null) {
     const options = {
@@ -10,7 +11,7 @@ async function request(endpoint, method = 'GET', body = null) {
 
     try {
         const response = await fetch(`${BASE_URL}${endpoint}`, options);
-        // Handle empty responses safely
+        // Handle empty responses safely (like from DELETE)
         const text = await response.text();
         const data = text ? JSON.parse(text) : {};
         return { status: response.status, data };
@@ -21,7 +22,7 @@ async function request(endpoint, method = 'GET', body = null) {
 }
 
 async function runTests() {
-    console.log('🚀 Starting API Test (Create, Read, Update ONLY)...\n');
+    console.log('🚀 Starting Full API Test (Create, Read, Update, Delete)...\n');
 
     let authorId = null;
     let postId = null;
@@ -31,15 +32,16 @@ async function runTests() {
     // 1. POST /authors
     console.log('1. Testing POST /authors (Create Author)...');
     const authorRes = await request('/authors', 'POST', {
-        name: 'Test User',
-        email: `test${Date.now()}@example.com`
+        name: 'Author1',
+        email: 'author1@gmail.com' // REMOVED TIMESTAMP
     });
     
     if (authorRes.status === 201) {
         authorId = authorRes.data.id;
         console.log(`✅ PASS: Created Author ID ${authorId}`);
+        console.log('   [DATA]:', JSON.stringify(authorRes.data, null, 2));
     } else {
-        console.error('❌ FAIL: Could not create author', authorRes.data);
+        console.error('❌ FAIL: Could not create author (Email might already exist if you ran this before)', authorRes.data);
         return;
     }
 
@@ -64,11 +66,12 @@ async function runTests() {
     // 4. PUT /authors/:id (Update)
     console.log('\n4. Testing PUT /authors/:id (Update Author)...');
     const updateAuthorRes = await request(`/authors/${authorId}`, 'PUT', {
-        name: 'Updated Name',
-        email: `updated${Date.now()}@example.com`
+        name: 'AuthorUpdated',
+        email: 'AuthorUpdated@gmail.com' // REMOVED TIMESTAMP
     });
-    if (updateAuthorRes.status === 200 && updateAuthorRes.data.name === 'Updated Name') {
+    if (updateAuthorRes.status === 200 && updateAuthorRes.data.name === 'AuthorUpdated') {
         console.log('✅ PASS: Author updated successfully');
+        console.log('   [DATA]:', JSON.stringify(updateAuthorRes.data, null, 2));
     } else {
         console.error('❌ FAIL: Update Author failed');
     }
@@ -78,7 +81,7 @@ async function runTests() {
     // 5. POST /posts (Create)
     console.log('\n5. Testing POST /posts (Create Post)...');
     const postRes = await request('/posts', 'POST', {
-        title: 'My Test Post',
+        title: 'Author-1 Post',
         content: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         author_id: authorId
     });
@@ -86,6 +89,7 @@ async function runTests() {
     if (postRes.status === 201) {
         postId = postRes.data.id;
         console.log(`✅ PASS: Created Post ID ${postId}`);
+        console.log('   [DATA]:', JSON.stringify(postRes.data, null, 2));
     } else {
         console.error('❌ FAIL: Could not create post');
         return;
@@ -106,35 +110,67 @@ async function runTests() {
     const filterRes = await request(`/posts?author_id=${authorId}`);
     const allMatch = filterRes.data.every(p => p.author_id === authorId);
     if (filterRes.status === 200 && filterRes.data.length > 0 && allMatch) {
-        console.log('✅ PASS: Filtering by author_id works');
+        console.log('✅ PASS: Filtering by author_id works.');
+        console.log('   [DATA]:', JSON.stringify(filterRes.data, null, 2));
     } else {
-        console.error('❌ FAIL: Filtering failed or returned empty list');
+        console.error('❌ FAIL: Filtering failed');
     }
 
-    // 8. PUT /posts/:id (Update)
-    console.log('\n8. Testing PUT /posts/:id (Update Post)...');
+    // 8. GET /posts/:id (Single Post)
+    console.log('\n8. Testing GET /posts/:id (Single Post)...');
+    const getSinglePostRes = await request(`/posts/${postId}`);
+    if (getSinglePostRes.status === 200 && getSinglePostRes.data.id === postId) {
+        console.log('✅ PASS: Retrieved single post correctly');
+        console.log('   [DATA]:', JSON.stringify(getSinglePostRes.data, null, 2));
+    } else {
+        console.error('❌ FAIL: Could not retrieve single post');
+    }
+
+    // 9. PUT /posts/:id (Update)
+    console.log('\n9. Testing PUT /posts/:id (Update Post)...');
     const updatePostRes = await request(`/posts/${postId}`, 'PUT', {
-        title: 'Updated Title',
+        title: 'Author-1 Updated_Post',
         content: 'abcdefghijklmnopqrstuvwxyz'
     });
-    if (updatePostRes.status === 200 && updatePostRes.data.title === 'Updated Title') {
+    if (updatePostRes.status === 200 && updatePostRes.data.title === 'Author-1 Updated_Post') {
         console.log('✅ PASS: Post updated successfully');
+        console.log('   [DATA]:', JSON.stringify(updatePostRes.data, null, 2));
     } else {
         console.error('❌ FAIL: Update Post failed');
     }
 
-    // --- SECTION 3: NESTED RESOURCES ---
+    // --- SECTION 3: DELETION ---
 
-    // 9. NESTED ROUTE GET /authors/:id/posts
-    console.log('\n9. Testing GET /authors/:id/posts (Nested Resource)...');
-    const nestedRes = await request(`/authors/${authorId}/posts`);
-    if (nestedRes.status === 200 && Array.isArray(nestedRes.data)) {
-        console.log(`✅ PASS: Retrieved ${nestedRes.data.length} posts for author`);
+    // 10. DELETE /posts/:id (Delete Single Post)
+    console.log('\n10. Testing DELETE /posts/:id (Delete Single Post)...');
+    // Create temp post to delete
+    const tempPost = await request('/posts', 'POST', { title: 'Temp', content: 'Delete Me', author_id: authorId });
+    const tempId = tempPost.data.id;
+    
+    const delPostRes = await request(`/posts/${tempId}`, 'DELETE');
+    const checkDel = await request(`/posts/${tempId}`);
+    
+    if (delPostRes.status === 200 && checkDel.status === 404) {
+        console.log(`✅ PASS: Post ${tempId} deleted successfully`);
     } else {
-        console.error('❌ FAIL: Nested route failed');
+        console.error('❌ FAIL: Post deletion failed');
     }
 
-    console.log('\n🎉 ALL NON-DESTRUCTIVE TESTS COMPLETED.');
+    // 11. DELETE /authors/:id (Cascade Delete)
+    console.log('\n11. Testing DELETE /authors/:id (Cascade Delete)...');
+    console.log(`    Deleting Author ID ${authorId}...`);
+    await request(`/authors/${authorId}`, 'DELETE');
+    
+    // Check if the post is gone
+    const checkCascade = await request(`/posts/${postId}`);
+    
+    if (checkCascade.status === 404) { 
+        console.log('✅ PASS: Author deleted AND Post automatically removed!');
+    } else {
+        console.error('❌ FAIL: Post still exists after Author deletion');
+    }
+
+    console.log('\n🎉 ALL TESTS COMPLETED.');
 }
 
 runTests();
